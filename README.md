@@ -554,10 +554,10 @@ class Database:
     accounts[("admin", "admin")] = None
     accounts[("root", "root")] = None
 
-    data = []  # Demonstration database data
-    data[1] = dict(value="One")
-    data[1] = dict(value="Two")
-    data[1] = dict(value="Three")
+    data = list() 
+    data.append(dict(value="One"))
+    data.append(dict(value="Two", message=":)"))
+    data.append(dict(value="Three"))
 
     @classmethod
     def _is_account_exists(cls, login, password):
