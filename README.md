@@ -1,4 +1,4 @@
-# Кибериммунный подход к разработке (проект Python-only)
+# Кибериммунный подход к разработке ПО
 
 В рамках изучения кибериммунного подхода к разработке программного обеспечения ([GitHub-репозиторий "Кибериммунитет"](https://github.com/sergey-sobolev/cyberimmune-systems/wiki/Кибериммунитет)) в качестве одного из упражнений на закрепление знаний, приобретённых на курсе ["Обучение кибериммунной разработке"](https://t.me/learning_cyberimmunity), аудитории предложена доработка [примера](https://datalore.jetbrains.com/notebook/03eLGJdIpU4hXmR1ojbvzD/colMMBzGG25Q6NHzjdXluU/) получения данных одной сущностью от другой.
 
@@ -12,7 +12,9 @@
 
 > *Замечание*: Изложенный вариант решения носит учебный характер. Обеспечение защиты взаимодействия сущностей данной модели от угроз "атак по-середине" выходит за рамки текущей стадии реализации.
 
-## Подход к реализации сущностей
+## Теоретическая часть
+
+### Представление Сущности
 
 Сущности реализованы с использованием класса `manager.BaseManager` модуля `multiprocessing` и представляют собой совокупность из Сервиса, содержащего очередь событий, и Клиента, обрабатывающего данные события. Внутрисистемное взаимодействие Клиента и Сервиса инкапсулировано в соответствующих авторских классах. 
 
@@ -55,6 +57,73 @@ package Entity{
 
 ![](https://www.plantuml.com/plantuml/svg/TL4zQyCm4DtrAuvuQOUKp0sKq2JUIyQs15M-kYAox5gdG0Z-xptf1jV1EO4nUX_l7Te4qZt5ngbmihxJlMx0j4tNUlHqe8j3wD6GzhL3fJfjJhf6s7koTBag1V3D2eJt3xzrbYMVKBpkzgkoXAk2F5tR4opuw03cs4Q2eimpYriFnIeFmyCau83zsHhaXDqs7SZvCDQ5nLl4YDdfD_r9qdmNOUGy8TsbSEMn4yy0wfOORdscuDI1j-Alt2wNBxBqCzH8HpoZfuT7Xet02G-2GnV_4UGsmUCUNuwVP-sinwTAXn-irYnZLU8BRJIL-3c9L67De3RegzYuFm00)
 
+### Схема взаимодействия нескольких Сущностей
+
+Взаимодействие сущностей в общем виде представляется как процесс, управляющий набором Клиентов, взаимодействующих с соответствующими им Сервисами:
+
+<details>
+<summary>см. код для генерации схемы на сайте Plantuml</summary>
+
+```text
+@startuml
+skinparam componentStyle rectangle
+
+node Entity\No.1 as "Complex Logic\nEntity"{
+
+  frame Entity_No_1_Client as "\nClient of\nEntity No.1" #BDE0FF {
+      port " " as n1_c_out #FFFFFF
+      port " " as n1_c_in #000000
+  }
+  frame Entity_No_2_Client as "\nClient of\nEntity No.2" #BDE0FF {
+      port " " as n2_c_out #FFFFFF
+      port " " as n2_c_in #000000
+  }
+
+  component Logic as "job\nmanagement"
+
+}
+frame [Entity\No.1\Service]  as "Service of\nEntity No.1" #DCDCDC {
+
+  component "Queue" as n1_queue #FFFFFF {
+    port " " as n1_queue_in #FFFFFF
+    port " " as n1_queue_out #000000
+  } 
+  port " " as n1_s_in #FFFFFF
+  port " " as n1_s_out #000000
+  n1_queue_out -> n1_s_out #black;line.dashed;  : get()
+  n1_s_in -> n1_queue_in #black;line.dashed;  : put()
+}
+
+frame [Entity\No.2\Service]  as "Service of\nEntity No.2" #DCDCDC {
+
+  component "Queue" as n2_queue #FFFFFF {
+    port " " as n2_queue_in #FFFFFF
+    port " " as n2_queue_out #000000
+  } 
+  port " " as n2_s_in #FFFFFF
+  port " " as n2_s_out #000000
+  n2_queue_out -> n2_s_out #black;line.dashed;  : get()
+  n2_s_in -> n2_queue_in #black;line.dashed;  : put()
+}
+
+
+n1_s_out --> n1_c_in : get_event()
+n1_c_out --> n1_s_in :  put_event()
+n2_s_out --> n2_c_in : get_event()
+n2_c_out --> n2_s_in :  put_event()
+Entity_No_2_Client <-- Logic 
+Entity_No_1_Client <-- Logic 
+
+@enduml
+```
+
+</details>
+
+![](https://www.plantuml.com/plantuml/svg/ZPHFhvim4CJl-obMvD8UU7hiiQ-gekRFgOfKvLWgvC26qXYRWeaQHVdkDH0Qfv06St9sPXZ_8WFpoeZIrBc4wf2fGfGYnrZdXLQipDQS96F9iH4gbGoWTCAuKYOpft2ZNm8K5NeBAvVy6x_eD8j3rOszCm3YtiRrXcYZeo1QoCm6jxvGNJTwtxkm2VLmzdcvUbslyGpOhaAN1ZtxM9iAeZZIjS7PkbsF99d2sMkxhE8oqeKcTA4dNUXv5nfs0RmXxgYr7NxgNQXoeKJAkPru01VeIdzpa8TRBezPpD-nDLrt8moNY-R1y_thlAyrrznZ-jLi-lPMwhPt9VO4lUgnne9mZuamq5Lkpd1wdt0Vx7zo93ifuiERp1I_9ABwmSaRuWTCsRnx3zY_gBCu_STTHTsuBZ14JPDGqoJKz1mrJK1D4r7JVr7J43NzWvecegORQfgE6lx-bRvrzjUrZOtuoAgHDR-waggJs117GsuCZSQG6qEZCIFVX8--VxsPpZGOcSASLLBdyWy0)
+
+## Лабораторная часть
+
+### Программная реализация Сущности
 
 Программно архитектура основана на классах Сервиса, Клиента и их базовом Супер-классе (с целью повышения фокуса внимания читателя здесь и далее из демонстрируемого исходного кода исключены конструкции, "лишние" для изложения и понимания).
 
@@ -128,7 +197,7 @@ class Client(SuperManager):
 
 ```
 
-### Пример использования
+### Пример использования программной реализации
 
 Так, реализованный пример тестового Сервиса:
 
@@ -183,72 +252,6 @@ event = Client('localhost', 9000, b'AUTH_KEY').connect().get_event()
 
 > *Замечание*: Сервис-сущности представлен в единственном числе, тогда как количество Клиентов-сущности, реализующих обработку очереди событий, не ограничено. Данное обстоятельство можно расценивать как направленное на повышение скорости обработоки очереди событий за счет параллельного доступа нескольких Клиентов к одному Сервису.
 
-### Взаимодействие сущностей
-
-Взаимодействие сущностей в общем виде представляется как процесс, управляющий набором Клиентов, взаимодействующих с соотвествующими им Сервисами:
-
-<details>
-<summary>см. код для генерации схемы на сайте Plantuml</summary>
-
-```text
-@startuml
-skinparam componentStyle rectangle
-
-node Entity\No.1 as "Complex Logic\nEntity"{
-
-  frame Entity_No_1_Client as "\nClient of\nEntity No.1" #BDE0FF {
-      port " " as n1_c_out #FFFFFF
-      port " " as n1_c_in #000000
-  }
-  frame Entity_No_2_Client as "\nClient of\nEntity No.2" #BDE0FF {
-      port " " as n2_c_out #FFFFFF
-      port " " as n2_c_in #000000
-  }
-
-  component Logic as "job\nmanagement"
-
-}
-frame [Entity\No.1\Service]  as "Service of\nEntity No.1" #DCDCDC {
-
-  component "Queue" as n1_queue #FFFFFF {
-    port " " as n1_queue_in #FFFFFF
-    port " " as n1_queue_out #000000
-  } 
-  port " " as n1_s_in #FFFFFF
-  port " " as n1_s_out #000000
-  n1_queue_out -> n1_s_out #black;line.dashed;  : get()
-  n1_s_in -> n1_queue_in #black;line.dashed;  : put()
-}
-
-frame [Entity\No.2\Service]  as "Service of\nEntity No.2" #DCDCDC {
-
-  component "Queue" as n2_queue #FFFFFF {
-    port " " as n2_queue_in #FFFFFF
-    port " " as n2_queue_out #000000
-  } 
-  port " " as n2_s_in #FFFFFF
-  port " " as n2_s_out #000000
-  n2_queue_out -> n2_s_out #black;line.dashed;  : get()
-  n2_s_in -> n2_queue_in #black;line.dashed;  : put()
-}
-
-
-n1_s_out --> n1_c_in : get_event()
-n1_c_out --> n1_s_in :  put_event()
-n2_s_out --> n2_c_in : get_event()
-n2_c_out --> n2_s_in :  put_event()
-Entity_No_2_Client <-- Logic 
-Entity_No_1_Client <-- Logic 
-
-@enduml
-```
-
-</details>
-
-![](https://www.plantuml.com/plantuml/svg/ZPHFhvim4CJl-obMvD8UU7hiiQ-gekRFgOfKvLWgvC26qXYRWeaQHVdkDH0Qfv06St9sPXZ_8WFpoeZIrBc4wf2fGfGYnrZdXLQipDQS96F9iH4gbGoWTCAuKYOpft2ZNm8K5NeBAvVy6x_eD8j3rOszCm3YtiRrXcYZeo1QoCm6jxvGNJTwtxkm2VLmzdcvUbslyGpOhaAN1ZtxM9iAeZZIjS7PkbsF99d2sMkxhE8oqeKcTA4dNUXv5nfs0RmXxgYr7NxgNQXoeKJAkPru01VeIdzpa8TRBezPpD-nDLrt8moNY-R1y_thlAyrrznZ-jLi-lPMwhPt9VO4lUgnne9mZuamq5Lkpd1wdt0Vx7zo93ifuiERp1I_9ABwmSaRuWTCsRnx3zY_gBCu_STTHTsuBZ14JPDGqoJKz1mrJK1D4r7JVr7J43NzWvecegORQfgE6lx-bRvrzjUrZOtuoAgHDR-waggJs117GsuCZSQG6qEZCIFVX8--VxsPpZGOcSASLLBdyWy0)
-
-> *Замечание по Python-реализации*: В целях недопущения возможных вариаций компановки предлагаемого исходного кода в реализуемые в будущем алгоритмические модели необходимо сделать важное замечание. Допустим, имеется соединение Клиента-X к Cервису-X. В случае реализации __непосредсвенно__ в Сервисе-X __клиентского__ соединения к Сервису-Y, например, Сервис-X по вызову из-вне динамически создает Клиента-Y для Сервиса-Y, Клиент-X безвозвратно теряет связь с Сервисом-X и начинеат "прозрачное" взаимодействие с Сервисом-Y, к которому изначально доступа не имел. Это весьма нетривиальное поведение выявлено на практике и требует перепроверки на свежих версиях Python. Данное обстоятельство\особенность\ограничение необходимо учитывать при организации вариантов динамического взаимодействия сущностей. Рассматриваемую модель это не затрагивает, так как необходимые Клиенты динамически создаются иными Клиентами.
-
 > *Замечание*: следующий пример предлагается рассмотреть самостоятельно:
 > * example_001_0_app_config.py
 > * example_001_1_service.py
@@ -256,7 +259,11 @@ Entity_No_1_Client <-- Logic
 > * example_001_3_client_get.py
 > * example_001_4_client_event_loop.py
 
-## Практическое применение и артефакты киберимунного подхода
+> *Замечание по Python-реализации*: В целях недопущения возможных вариаций компановки предлагаемого исходного кода в реализуемые в будущем алгоритмические модели необходимо сделать важное замечание. Допустим, имеется соединение Клиента-X к Cервису-X. В случае реализации __непосредсвенно__ в Сервисе-X __клиентского__ соединения к Сервису-Y, например, Сервис-X по вызову из-вне динамически создает Клиента-Y для Сервиса-Y, Клиент-X безвозвратно теряет связь с Сервисом-X и начинеат "прозрачное" взаимодействие с Сервисом-Y, к которому изначально доступа не имел. Это весьма нетривиальное поведение выявлено на практике и требует перепроверки на свежих версиях Python. Данное обстоятельство\особенность\ограничение необходимо учитывать при организации вариантов динамического взаимодействия сущностей. Рассматриваемую модель это не затрагивает, так как необходимые Клиенты динамически создаются иными Клиентами.
+
+## Практическая часть
+
+### Применение модели Сущности на практике в рамках киберимунного подхода
 
 С целью ориентации упражнения на практическую область в качестве наглядного примера выбран алгоритм аутентификации пользователя в информационной системе.
 
@@ -282,30 +289,30 @@ wa -> [Manager]
 
 ![](http://www.plantuml.com/plantuml/png/NOyzhi9038Hxdy9AdoiyvT5JKL0WYjd4X5Ns9_8QhRWz2P4YeBC_UJvhkc9GUyH0GMx6bbdzU3SUl4flFYSgaqyp597HMzQJFOCmgfGSXGOO78fmSyuwYVAXOHIkZjx7E_xVC3viVOvpJf9iCwxlaCOWH9SZ4aRHAxVjtnggZfTXnrJnlVy477MIXgNJ2m00)
 
-### Домены модели на физическом уровне
+#### Домены модели на физическом уровне
 
 Сущности модели информационной системы:
 * `Пользователь` - взаимодействует с `Аутентификатором`, связанным `Базой данных` (в отдельную сущность не выделена);
 * `Аутентификатор` - аутентифицирует `Пользователя` для доступа к `Базе данных`;
 * `Менеджер` - промежуточное звено, отвечающее исключительно за проверку политики безопасности взаимодействия `Пользователя` и `Аутентификатора`;
 
-### Активы
+#### Активы
 
 * данные `Базы данных`;
 
-### Угрозы безопасности
+#### Угроза безопасности
 
 * предоставление данных из `Базы данных` неаутентифицированному `Пользователю`;
 
-### Цель безопасности
+#### Цель безопасности
 
 * данные из `Базы данных` предоставляются только аутентифицированному `Пользователю`;
 
-### Предположения безопасности
+#### Предположения безопасности
 
 * если коротко - `Пользователь` - не доверенная сторона;
 
-### Реализация События и политики безопасности
+#### Реализация События и политики безопасности
 
 Вышеприведенная очередь Сервиса не ограничена типом хранящихся элементов. Это могут быть как словари `dict`, так и  объекты разнородных произвольных классов.
 
@@ -356,7 +363,7 @@ def check_by_policy(event):
 
 ```
 
-### Реализация сущностей
+#### Взаимодействие Сущностей
 
 На схеме взаимодействия сущностей стрелками указано направление прохождения События по циклу его обрабоки (маркером `NEW` указан факт возникновения нового События в результате обработки предыдущего События):
 
@@ -460,7 +467,7 @@ node ManagerClient as "Manager Client Complex Logic"{
 
 ![](http://www.plantuml.com/plantuml/png/fPPHRvim4CVV-HIdvALzoDJbCPscRadtj4sQecaFouHkSAEeO1XmrQgfttt6CWOS78EMlbJs_yxdtzqVkAiRh1hEiw1-J4M95UOG5NbP21BDiNdE22gA6XH9Ha7mIsuJVF-40XEgZbGzfH7z0C0QLdhn9FJo2jQ7VVi7VmFeSyBg2nFJget9mz_j_x3-e7vA250MbLJ1K16ceXCv9GKtiBvHFwbvWS2MrUCirgOLFyowUTiBVcOOFTvcgQ1NCTOF5D_23X9ghgu3q6SelQdR4L9o6_BI4Nt7pOE4aqRO51RNuTOYkkYbYtwwE8ykNgABPtHnJ1TdqKL35-VI5KLCC0AubwGo-hFFKhbqpXVqnZ6DwIIq63uMIHgjMdwgNUECeIkNZ5SxibNl3_StZWv4wkPk_96wPK_U575u5fYdKQXzDon3Rvs4tfjJIPo_zjIY5EVLcDaROr7CG9LJLaL4TGtqrDOGm9Hm8zlQbx3hWoBCifEG3GrL-1Lylly6ruuiRpQR3jdEof1Gbq466zzzhUt7c5nPv3BskepzBkDvBkDBBkCpb_7OPJpBPMnSnejS9hbDc4kkUZtLOvLgzznu1d_x7vE_zKx-rkb3LNHeNNdEiUmvbAUEr8ICORPB3AE2ZKzO-mGk6qKrLzCSt5AjzBsrkshtoePa-ZINLkp35RExHHEFo0NpaNjEpltFQESBmt1O_EQ8qGS4p-iQkKtrIbKHKqO9DjGvJShCd6ow--zWC1a1z1sH8Ys_C8Lg06DS669Y-ky4DR8bMvKO2KzBpAj5-IPtYRO-aVuCwJGQiOs61nAUbkH6eewQq0IoNNSaOiwpVm00)
 
-#### Менеджер
+##### Реализация Сервиса и Клиента Менеджера
 
 Сервис Менеджера проверяет транслируемые ему в очередь Cобытия на допустимость в соответствии с политикой безопасности. 
 
@@ -500,7 +507,7 @@ class ManagerClient(Client):
        
 ```
 
-#### Аутентификатор
+##### Реализация Сервиса и Клиента Аутентификатора
 
 Сервис Аутентификатора не реализует дополнительных функций:
 
@@ -602,7 +609,7 @@ class Database:
     
 ```
 
-#### Пользователь
+##### Реализация Сервиса и Клиента Пользователя
 
 Сервис Пользователя не реализует дополнительных функций:
 
@@ -669,7 +676,7 @@ class UserClient(Client):
 
 > *Замечание*: необходимо повториться, приведённый вариант решения носит учебный характер. Многопользовательский доступ с использованием данной реализации не рассматривается. Для организации безопасной работы нескольких пользовательских Клиентов целесообразно рассмотреть разделение очередей Событий Пользователей в едином Сервисе Пользователя или же введение сущности реестра Сервисов Пользователей, работающих отдельно для каждого своего Клиента Пользователя. 
 
-### Пример запуска инфраструктуры
+#### Пример запуска инфраструктуры
 
 Откройте 5 терминалов и по очереди в каждом запустите:
 1. `python3 ./manager_service.py`
@@ -678,7 +685,7 @@ class UserClient(Client):
 4. `python3 ./manager_client.py`
 5. `python3 ./authenticator_client.py`
 
-#### Пример Клиента Пользователя
+##### Фокус внимания на Клиенте Пользователя
   
 В шестом терминале запустите Клиента Пользователя:
 
@@ -688,8 +695,8 @@ class UserClient(Client):
 
 ```python
 user = UserClient(config.HOST,
-                      config.PORT,
-                      config.SECRET_KEY).connect()
+                  config.PORT,
+                  config.SECRET_KEY).connect()
 ```
 
 Журнал работы:
@@ -699,7 +706,13 @@ user = UserClient(config.HOST,
 2023-01-18 01:52:49,689 INFO     [UserClient] connect.
 ```
 
-##### Аутентификация
+Далее отработают:
+* запрос аутентификации;
+* запрос данных по валидному сессинному ключу;
+* запрос валидности заведомо ложного сессионного ключа;
+* попытка запроса данных по заведомо ложному сессинному ключу.
+
+###### Запрос аутентификации
 
 <details>
 <summary>см. код для генерации схемы на сайте Plantuml</summary>
@@ -817,7 +830,7 @@ deactivate User_Client
 * `operation='authenticate_response'`;
 * `'session_token': 'e8a63f9a-1276-412f-ad3c-a5752ea91af3'`.
 
-##### Запрос данных по валидному сессонному ключу
+###### Запрос данных по валидному сессинному ключу
 
 <details>
 <summary>см. код для генерации схемы на сайте Plantuml</summary>
@@ -865,7 +878,7 @@ Manager  -> User     : Ответ:\nпредоставленные данные
 * `operation='get_data_from_database_response'`;
 * `'data': [{'value': 'One'}, {'value': 'Two', 'message': ':)'}, {'value': 'Three'}]`.
 
-##### Проверка заведомо ложного сессионного ключа
+###### Запрос валидности заведомо ложного сессионного ключа
 
 <details>
 <summary>см. код для генерации схемы на сайте Plantuml</summary>
@@ -912,7 +925,7 @@ event = user.wait_for_check_session_token()  # ожидает ответ на з
 * `operation='check_session_token_response'`;
 * `'status': 'error', 'message': 'session token is invalid'`.
 
-##### Попытка запроса данных по заведомо ложному сессонному ключу
+###### Попытка запроса данных по заведомо ложному сессинному ключу
 
 <details>
 <summary>см. код для генерации схемы на сайте Plantuml</summary>
@@ -958,15 +971,15 @@ event = user.wait_for_get_data_from_database()  # ожидает ответ на
 * `operation='get_data_from_database_response'`;
 * `'status': 'error', 'message': 'session token is invalid'`.
 
-## Интерактивность
+### Интерактивность
 
 В целях изучения аудиторией курса указанной модели на практике ее реализация продемонстрирована на платформе Datalore с учетом особенностей запуска клиент-сервисной архитектуры в условиях одного потока исполнения:
 * https://datalore.jetbrains.com/notebook/UkXbzl6pNHmzi3r8XeCioW/Y58uLwCLBsyR2J941RZ2iP/ 
 
 ## Вывод
 
-В данном примере на языке программирования Python продемонстрирован проект модели аутентификации пользователя с применением к разработке киберимунного подхода. Функционирующие сущности обособлены, их взаимодействие осуществляется через отдельную сущность, осуществляющую проверку политики безопасности запросов. Модель функционирует в режиме запрос-ответ, События имеют цикл обработки. 
-
-При этом, как продемонстрировано, цель безопасности достигнута: данные из `Базы Данных` предоставлются только аутентифицированным `Пользователям`. 
-
-  
+В данном примере на языке программирования Python реализован проект модели аутентификации пользователя с применением к разработке киберимунного подхода:
+* Функционирующие Сущности обособлены.
+* Взаимодействие Сущностей осуществляется через отдельную Сущность, осуществляющую проверку политики безопасности запросов. 
+* События имеют цикл обработки. Модель функционирует в режиме запрос-ответ Сущности `Worker A` от `Worker B`.
+* Достигнута цель безопасности: данные из `Базы Данных` предоставляются только аутентифицированному `Пользователю`. 
